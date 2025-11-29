@@ -1,12 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Terminal, 
   Cpu, 
   Network, 
   Shield, 
-  Server, 
   Code, 
-  Database, 
   Zap, 
   MapPin, 
   Mail, 
@@ -14,273 +12,8 @@ import {
   ChevronRight,
   Menu,
   X,
-  ExternalLink,
-  MessageSquare,
-  Send,
-  Loader2,
-  Sparkles,
-  Bot,
-  FileText
+  ExternalLink
 } from 'lucide-react';
-
-// --- Gemini API Integration ---
-
-const apiKey = ""; // API Key provided by runtime environment
-
-const RESUME_CONTEXT = `
-You are an AI assistant for Riyaj Patel, a Systems Software Engineer specializing in High-Performance Networking.
-Here is his profile data:
-Name: Riyaj Patel
-Role: Systems Software Engineer (Networking & Acceleration)
-Core Skills: C++ (11-20), Linux, High-Performance Networking, SmartNICs, DPDK, DPI, Crypto, NUMA, Multithreading.
-Experience Highlights:
-1. SmartNIC-Accelerated DPI Engine: Built on BlueField-2 using DOCA + DPDK.
-2. High-Performance Traffic Interceptor: 100G real-time packet interception using Mellanox NICs + DPDK.
-3. Crypto Offload Pipeline: SSL/TLS/QUIC offloading using DPU accelerators.
-4. Distributed Packet Filtering: IP/URL/behavior-based filtering.
-Target Roles: NVIDIA, AMD, Intel, Cloudflare, Arista, CrowdStrike.
-Location: Indore, India (Remote-friendly).
-Tone: Professional, technical, concise, enthusiastic about low-level systems programming.
-`;
-
-const callGemini = async (prompt, systemInstruction = "You are a helpful assistant.") => {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-  const payload = {
-    contents: [{ parts: [{ text: prompt }] }],
-    systemInstruction: { parts: [{ text: systemInstruction }] }
-  };
-
-  let delay = 1000;
-  for (let i = 0; i < 5; i++) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
-    } catch (error) {
-      if (i === 4) return "Error connecting to AI service. Please try again later.";
-      await new Promise(resolve => setTimeout(resolve, delay));
-      delay *= 2;
-    }
-  }
-};
-
-// --- Components ---
-
-const ChatWidget = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { role: 'assistant', text: 'Hello! I am Riyaj\'s virtual assistant. Ask me anything about his experience with DPDK, SmartNICs, or C++.' }
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isOpen]);
-
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    const userMsg = { role: 'user', text: input };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setIsLoading(true);
-
-    const prompt = `User Question: ${input}\nAnswer based on Riyaj's profile context. Keep it concise.`;
-    const aiResponseText = await callGemini(prompt, RESUME_CONTEXT);
-
-    setMessages(prev => [...prev, { role: 'assistant', text: aiResponseText }]);
-    setIsLoading(false);
-  };
-
-  return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end font-sans">
-      {isOpen && (
-        <div className="bg-slate-900 border border-cyan-500/30 rounded-lg shadow-2xl w-80 md:w-96 mb-4 overflow-hidden flex flex-col h-[500px] animate-fade-in-up">
-          {/* Header */}
-          <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Bot className="text-cyan-400" size={20} />
-              <span className="font-bold text-white text-sm">System.AI Assistant</span>
-            </div>
-            <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white">
-              <X size={18} />
-            </button>
-          </div>
-          
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950/50">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-lg p-3 text-sm ${
-                  msg.role === 'user' 
-                    ? 'bg-cyan-600 text-white' 
-                    : 'bg-slate-800 text-slate-300 border border-slate-700'
-                }`}>
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
-                  <Loader2 className="animate-spin text-cyan-400" size={16} />
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <div className="p-3 bg-slate-800 border-t border-slate-700 flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Ask about my stack..."
-              className="flex-1 bg-slate-900 border border-slate-700 rounded text-sm text-white px-3 py-2 focus:outline-none focus:border-cyan-500"
-            />
-            <button 
-              onClick={handleSend}
-              disabled={isLoading || !input.trim()}
-              className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white p-2 rounded transition-colors"
-            >
-              <Send size={18} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="bg-cyan-600 hover:bg-cyan-500 text-white p-4 rounded-full shadow-lg shadow-cyan-900/20 transition-all hover:scale-110 flex items-center justify-center group"
-      >
-        {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
-        {!isOpen && (
-          <span className="absolute right-full mr-4 bg-slate-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity border border-slate-700">
-            Ask AI about me
-          </span>
-        )}
-      </button>
-    </div>
-  );
-};
-
-const JobMatchAnalyzer = () => {
-  const [jobDescription, setJobDescription] = useState('');
-  const [analysis, setAnalysis] = useState(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  const analyzeJob = async () => {
-    if (!jobDescription.trim()) return;
-    setIsAnalyzing(true);
-    setAnalysis(null);
-
-    const prompt = `
-      Analyze how Riyaj Patel's profile fits this Job Description:
-      "${jobDescription}"
-      
-      Provide a response in this JSON format (do not use markdown code blocks, just raw JSON):
-      {
-        "matchScore": "Integer 0-100",
-        "verdict": "A brief 1 sentence summary of fit",
-        "keyMatches": ["Skill 1", "Skill 2", "Skill 3"],
-        "pitch": "A short, professional paragraph explaining why he is a good candidate for this specific role, highlighting relevant projects (DPI, SmartNICs, etc)."
-      }
-    `;
-
-    try {
-      const response = await callGemini(prompt, RESUME_CONTEXT + "\nReturn ONLY valid JSON.");
-      const cleanResponse = response.replace(/```json|```/g, '').trim();
-      setAnalysis(JSON.parse(cleanResponse));
-    } catch (e) {
-      setAnalysis({
-        matchScore: 0,
-        verdict: "Error analyzing fit.",
-        keyMatches: [],
-        pitch: "Could not generate analysis. Please try again."
-      });
-    }
-    setIsAnalyzing(false);
-  };
-
-  return (
-    <div className="mt-12 bg-slate-900 border border-slate-700 rounded-xl p-6 md:p-8 animate-fade-in-up">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-purple-500/10 rounded-lg">
-          <Sparkles className="text-purple-400" size={24} />
-        </div>
-        <div>
-          <h3 className="text-xl font-bold text-white">AI Job Match Analyzer ✨</h3>
-          <p className="text-slate-400 text-sm">Paste a Job Description to see how my profile aligns.</p>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <textarea
-          value={jobDescription}
-          onChange={(e) => setJobDescription(e.target.value)}
-          placeholder="Paste JD content here (e.g. 'Looking for a C++ Systems Engineer with DPDK experience...')"
-          className="w-full h-32 bg-slate-950 border border-slate-800 rounded-lg p-4 text-slate-300 text-sm focus:outline-none focus:border-purple-500 transition-colors resize-none"
-        />
-        
-        <div className="flex justify-end">
-          <button
-            onClick={analyzeJob}
-            disabled={isAnalyzing || !jobDescription.trim()}
-            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-medium transition-all"
-          >
-            {isAnalyzing ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
-            Analyze Fit
-          </button>
-        </div>
-      </div>
-
-      {analysis && (
-        <div className="mt-6 pt-6 border-t border-slate-800 animate-fade-in-up">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-slate-400 text-sm font-mono">Match Score</span>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-32 bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 transition-all duration-1000" 
-                  style={{ width: `${analysis.matchScore}%` }}
-                />
-              </div>
-              <span className="text-white font-bold">{analysis.matchScore}%</span>
-            </div>
-          </div>
-
-          <h4 className="text-white font-semibold mb-2">{analysis.verdict}</h4>
-          
-          <div className="flex flex-wrap gap-2 mb-4">
-            {analysis.keyMatches.map((skill, i) => (
-              <span key={i} className="px-2 py-1 bg-green-900/20 text-green-400 text-xs rounded border border-green-900/50">
-                ✓ {skill}
-              </span>
-            ))}
-          </div>
-
-          <p className="text-slate-300 text-sm leading-relaxed bg-slate-800/50 p-4 rounded border-l-2 border-purple-500">
-            "{analysis.pitch}"
-          </p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// --- Main Component ---
 
 const Portfolio = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -296,7 +29,7 @@ const Portfolio = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const scrollToSection = (id) => {
+  const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
@@ -316,8 +49,24 @@ const Portfolio = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-300 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
       
+      {/* Custom CSS for Animations injected directly into the component */}
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.8s ease-out forwards;
+          opacity: 0;
+        }
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-300 { animation-delay: 0.3s; }
+        .delay-400 { animation-delay: 0.4s; }
+      `}</style>
+
       {/* Navigation */}
-      <nav className={`fixed w-full z-40 transition-all duration-300 border-b border-slate-800/50 ${scrolled ? 'bg-slate-950/90 backdrop-blur-md py-4' : 'bg-transparent py-6'}`}>
+      <nav className={`fixed w-full z-50 transition-all duration-300 border-b border-slate-800/50 ${scrolled ? 'bg-slate-950/90 backdrop-blur-md py-4' : 'bg-transparent py-6'}`}>
         <div className="container mx-auto px-6 flex justify-between items-center">
           <div className="font-mono text-xl font-bold text-cyan-400 tracking-tighter cursor-pointer" onClick={() => scrollToSection('home')}>
             &lt;RP /&gt;
@@ -329,7 +78,9 @@ const Portfolio = () => {
               <button
                 key={link.name}
                 onClick={() => scrollToSection(link.id)}
-                className="text-sm font-medium hover:text-cyan-400 transition-colors uppercase tracking-wider"
+                className={`text-sm font-medium transition-colors uppercase tracking-wider ${
+                  activeSection === link.id ? 'text-cyan-400' : 'text-slate-300 hover:text-cyan-400'
+                }`}
               >
                 {link.name}
               </button>
@@ -349,7 +100,9 @@ const Portfolio = () => {
               <button
                 key={link.name}
                 onClick={() => scrollToSection(link.id)}
-                className="text-left text-lg font-medium hover:text-cyan-400"
+                className={`text-left text-lg font-medium ${
+                  activeSection === link.id ? 'text-cyan-400' : 'text-slate-300 hover:text-cyan-400'
+                }`}
               >
                 {link.name}
               </button>
@@ -574,10 +327,6 @@ const Portfolio = () => {
                  </p>
               </div>
             </div>
-
-            {/* Gemini Integration Here */}
-            <JobMatchAnalyzer />
-
           </div>
         </div>
       </section>
@@ -621,16 +370,19 @@ const Portfolio = () => {
         <p>Built with React & Tailwind. Designed for Performance.</p>
         <p className="mt-2">© {new Date().getFullYear()} Riyaj Patel</p>
       </footer>
-
-      {/* Floating Chat Widget */}
-      <ChatWidget />
     </div>
   );
 };
 
 // Sub-components
 
-const SkillCard = ({ icon, title, skills }) => (
+interface SkillCardProps {
+  icon: React.ReactNode;
+  title: string;
+  skills: string[];
+}
+
+const SkillCard = ({ icon, title, skills }: SkillCardProps) => (
   <div className="bg-slate-900 p-6 rounded-lg border border-slate-800 hover:border-cyan-500/50 transition-colors group">
     <div className="flex items-center mb-4">
       <div className="p-3 bg-slate-800 rounded-lg group-hover:bg-slate-700 transition-colors">
@@ -649,7 +401,13 @@ const SkillCard = ({ icon, title, skills }) => (
   </div>
 );
 
-const ProjectCard = ({ title, description, tags }) => (
+interface ProjectCardProps {
+  title: string;
+  description: string;
+  tags: string[];
+}
+
+const ProjectCard = ({ title, description, tags }: ProjectCardProps) => (
   <div className="bg-slate-900 p-8 rounded-xl border border-slate-800 hover:bg-slate-800/50 transition-all group relative overflow-hidden">
     <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity">
       <ExternalLink className="text-cyan-400" size={24} />
